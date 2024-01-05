@@ -1,0 +1,119 @@
+from google.colab import drive
+drive.mount('/content/drive')
+
+IMPORT LIBRARIES
+
+from glob import glob
+import cv2
+import matplotlib.pyplot as plt
+import numpy as np
+
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, r2_score, accuracy_score, confusion_matrix, f1_score, precision_score, recall_score, roc_curve, auc
+
+from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import GridSearchCV
+from xgboost import XGBClassifier
+
+images_path = {}
+images_path["benign"] = glob("/content/drive/MyDrive/BreaKHis_v1/histology_slides/breast/benign/SOB/*/*/400X/*.png")
+images_path["malignant"] = glob("/content/drive/MyDrive/BreaKHis_v1/histology_slides/breast/malignant/SOB/*/*/400X/*.png")
+images_class = {
+    'benign' : 0,
+    'malignant' : 1
+}
+
+print(images_path)
+
+X = []
+Y = []
+
+for label in images_path:
+    for image_path in images_path[label]:
+        image = cv2.imread(image_path)
+        image = cv2.resize(image,(299, 299))
+        X.append(image)
+        Y.append(images_class[label])
+
+plt.imshow(X[0])
+plt.show()
+
+x = np.array(X)
+y = np.array(Y)
+
+pre_trained_models = {}
+
+**MODEL**
+
+from keras.applications.densenet import DenseNet201
+pre_trained_models["DenseNet201"] = DenseNet201(include_top=False, input_shape=(299, 299, 3), pooling="avg")
+
+for layer in pre_trained_models["DenseNet201"].layers:
+    layer.trainable = False
+
+split test and train set
+
+X_train, X_test, Y_train, Y_test = train_test_split(x, y, test_size=0.3, random_state=0)
+X_train = pre_trained_models["DenseNet201"].predict(X_train)
+X_test = pre_trained_models["DenseNet201"].predict(X_test)
+
+#Play an audio beep. Any audio URL will do.
+from google.colab import output
+output.eval_js('new Audio("https://upload.wikimedia.org/wikipedia/commons/0/05/Beep-09.ogg").play()')
+
+**CLASSIFIER**
+
+Classifier = XGBClassifier(learning_rate = 0.5, n_estiamtors = 250, random_state = 0, gamma = 0, seed = 0)
+Classifier.fit(X_train, Y_train)
+
+Y_pred = Classifier.predict(X_test)
+print(accuracy_score(Y_test, Y_pred))
+
+*Find* The Best Parameter in Classifier
+
+# lgb.save(Classifier, "/content/drive/MyDrive/Ai_project/LightGBM1.model/")
+
+# DensNet 201
+# 0.9298831385642737 with gpu
+# 0.9332220367278798 without gpu
+
+# DenseNet 169
+# 0.9232053422370617 without gpu
+# 0.9065108514190318 with gpu
+
+# import warnings
+# warnings.filterwarnings("ignore")
+
+# parameters = {
+#     'learning_rate': [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
+#     'random_state': range(0, 10),
+#     'n_estimators': [150, 200, 250, 300, 350]
+# }
+# grid_search = GridSearchCV(estimator = Classifier, param_grid = parameters, scoring = 'accuracy', cv = 5)
+# grid_search.fit(X_train, Y_train)
+
+# best_acc = grid_search.best_score_
+# print(best_acc)
+
+# best_param = grid_search.best_params_
+# print(best_param)
+
+**Metrics**
+
+# print("Accuracy score : ", accuracy_score(Y_test, Y_pred))
+# print("mean_squared_error : ", mean_squared_error(Y_test, Y_pred))
+# print("r2_score : ", r2_score(Y_test, Y_pred))
+# print("f1_score : ", f1_score(Y_test, Y_pred))
+# print("precision_score: ", precision_score(Y_test, Y_pred))
+# print("recall_score : ", recall_score(Y_test, Y_pred))
+
+**CONFUSION MATRIX**
+
+# import seaborn as sns
+# cm = confusion_matrix(Y_test, Y_pred)
+# Cmatrix = sns.heatmap(cm, annot=True)
+
+# figure = Cmatrix.get_figure()
+# figure.savefig('./drive/MyDrive/Datasets/EfficientNetB7_CM.png', dpi=400)
+
+# !tar -xzvf "/content/drive/MyDrive/BreaKHis_v1.tar.gz" -C "/content/drive/MyDrive/Datasets2/"
